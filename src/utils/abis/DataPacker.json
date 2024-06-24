@@ -1,0 +1,130 @@
+[
+  {
+    "inputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_nftCollateralId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_borrowerNonce",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_nftCollateralContract",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_borrower",
+        "type": "address"
+      }
+    ],
+    "name": "packBorrowerData",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_loanPrincipalAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_maximumRepaymentAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_nftCollateralId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_loanDuration",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_loanInterestRateForDurationInBasisPoints",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_adminFeeInBasisPoints",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_lenderNonce",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_nftCollateralContract",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_loanERC20Denomination",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_lender",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "_interestIsProRated",
+        "type": "bool"
+      }
+    ],
+    "name": "packLenderData",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]

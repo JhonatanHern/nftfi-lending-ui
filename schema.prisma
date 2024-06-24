@@ -1,0 +1,40 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Offer {
+  id                                       String  @id @default(auto()) @map("_id") @db.ObjectId
+  loanPrincipalAmount                      BigInt
+  maximumRepaymentAmount                   BigInt
+  nftCollateralId                          String
+  loanDuration                             Int // time in seconds
+  loanInterestRateForDurationInBasisPoints Int
+  adminFeeInBasisPoints                    Int
+  borrowerNonce                            BigInt
+  lenderNonce                              BigInt?
+  nftCollateralContract                    String
+  loanERC20Denomination                    String
+  requesterSignature                       String
+  fulfillerSignature                       String?
+  requester                                User    @relation("requesterAddress", fields: [requesterAddress], references: [address])
+  fulfiller                                User?   @relation("fulfillerAddress", fields: [fullfillerAddress], references: [address])
+  requesterAddress                         String
+  fullfillerAddress                        String?
+  executionTransaction                     String?
+  network                                  String
+  userId                                   String? @db.ObjectId
+}
+
+model User {
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  address String  @unique
+  name    String?
+
+  offerRequesterTo Offer[] @relation("requesterAddress")
+  offerFulfillerTo Offer[] @relation("fulfillerAddress")
+}
