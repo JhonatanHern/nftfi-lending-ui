@@ -19,6 +19,11 @@ import NFTfiABI from "../utils/abis/NFTfi.json";
 import ERC20ABI from "../utils/abis/ERC20.json";
 import ERC721ABI from "../utils/abis/ERC721.json";
 import { ethers } from "ethers";
+import { formatDistance } from "date-fns";
+import {
+  OnChainLoan,
+  blockchainDataToOnChainLoan,
+} from "@/utils/conversionAndTypes";
 
 type OfferParams = {
   offer: any;
@@ -40,6 +45,10 @@ function Offer({ offer, fetchOrders }: OfferParams) {
         offer.loanERC20Denomination.toLowerCase()
     );
   }, [offer]);
+  const [onChainLoan, setOnChainLoan] = useState<OnChainLoan | null>(null);
+  const [loanRepaidOrLiquidated, setLoanRepaidOrLiquidated] = useState<
+    boolean | null
+  >(null);
   const collateralContract = useMemo(() => {
     return whitelistedContracts[offer.network as number].erc721tokens.find(
       (token: WhitelistedContract) =>
@@ -74,6 +83,47 @@ function Offer({ offer, fetchOrders }: OfferParams) {
       fulfillerBalance < BigInt(offer.loanPrincipalAmount)
     );
   }, [fulfillerBalance, offer]);
+
+  useEffect(() => {
+    const fetchOfferFromChainIfNeeded = async () => {
+      if (
+        offer.executionTransaction &&
+        offer.offerIdInContract &&
+        offer.network === currentChainId?.toString() &&
+        (offer.requesterAddress?.toLowerCase() ===
+          account.address?.toLowerCase() ||
+          offer.fullfillerAddress?.toLowerCase() ===
+            account.address?.toLowerCase())
+      ) {
+        // fetch from blockchain
+        const data: any = await directRead(config, {
+          abi: NFTfiABI,
+          address: whitelistedContracts[currentChainId || 1].NFTfi,
+          functionName: "loanIdToLoan",
+          args: [offer.offerIdInContract],
+        });
+        setOnChainLoan(blockchainDataToOnChainLoan(data));
+      }
+    };
+    fetchOfferFromChainIfNeeded();
+  }, [offer.executionTransaction]);
+
+  const fetchIfLoanIsOver = async () => {
+    if (!onChainLoan) {
+      return;
+    }
+    const data: any = await directRead(config, {
+      abi: NFTfiABI,
+      address: whitelistedContracts[currentChainId || 1].NFTfi,
+      functionName: "loanRepaidOrLiquidated",
+      args: [offer.offerIdInContract],
+    });
+    setLoanRepaidOrLiquidated(data);
+  };
+  useEffect(() => {
+    fetchIfLoanIsOver();
+  }, [onChainLoan]);
+
   const approveFundsTransfer = async () => {
     // approval before the fulfilling step and for after in case that it gets revoked
     if (!requestedERC20) {
@@ -103,7 +153,7 @@ function Offer({ offer, fetchOrders }: OfferParams) {
         hash: txHash,
       });
 
-      toast.success("NFT Approved");
+      toast.success("Funds approved");
     } catch (error) {
       toast.error("Error approving NFT");
       console.log(error);
@@ -225,7 +275,7 @@ function Offer({ offer, fetchOrders }: OfferParams) {
     try {
       const transactionHash = await writeContract(config, {
         abi: NFTfiABI,
-        address: `0x${whitelistedContracts[currentChainId].NFTfi.split("0x").join("")}`,
+        address: whitelistedContracts[currentChainId].NFTfi,
         functionName: "beginLoan",
         args: [
           offer.loanPrincipalAmount, // uint256 _loanPrincipalAmount,
@@ -242,14 +292,20 @@ function Offer({ offer, fetchOrders }: OfferParams) {
           offer.fulfillerSignature, // bytes memory _lenderSignature
         ],
       });
-      await client.waitForTransactionReceipt({
+      const receipt = await client.waitForTransactionReceipt({
         hash: transactionHash,
       });
+      const lastEmittedEvent = receipt.logs[receipt.logs.length - 1];
+      const eventData = lastEmittedEvent.data;
+      const offerIdInContract = eventData.substring(0, 66); // 0x + 64 characters - first variable emitted in the event
+
       const request = await fetch(
         "/api/notifyTransactionExecution?transactionHash=" +
           encodeURIComponent(transactionHash) +
           "&offerId=" +
-          encodeURIComponent(offer.id),
+          encodeURIComponent(offer.id) +
+          "&offerIdInContract=" +
+          encodeURIComponent(offerIdInContract),
         {
           method: "POST",
         }
@@ -299,6 +355,72 @@ function Offer({ offer, fetchOrders }: OfferParams) {
       toast.error("Offer reopening error");
     }
   };
+  const payBack = async () => {
+    if (!requestedERC20 || !currentChainId) {
+      return;
+    }
+    // approve fund transfer
+    try {
+      const txHash = await writeContract(config, {
+        abi: ERC20ABI,
+        address: requestedERC20.address,
+        functionName: "approve",
+        args: [
+          whitelistedContracts[currentChainId].NFTfi,
+          onChainLoan?.maximumrepaymentamount,
+        ],
+      });
+      const txReceipt = await client.waitForTransactionReceipt({
+        hash: txHash,
+      });
+      toast.success("Approval Successful");
+    } catch (error) {
+      toast.error("Approval Error");
+      console.log(error);
+      return;
+    }
+    // call contract payback function
+    try {
+      const txHash = await writeContract(config, {
+        abi: NFTfiABI,
+        address: whitelistedContracts[currentChainId].NFTfi,
+        functionName: "payBackLoan",
+        args: [offer.offerIdInContract],
+      });
+      const txReceipt = await client.waitForTransactionReceipt({
+        hash: txHash,
+      });
+      // update UI to reflect loan status
+      setLoanRepaidOrLiquidated(true);
+      toast.success("Loan paid");
+    } catch (error) {
+      toast.error("Error paying loan");
+      console.log(error);
+    }
+  };
+  const liquidateOverdueLoan = async () => {
+    if (!currentChainId) {
+      return;
+    }
+    // call contract claim function
+    try {
+      const txHash = await writeContract(config, {
+        abi: NFTfiABI,
+        address: whitelistedContracts[currentChainId].NFTfi,
+        functionName: "liquidateOverdueLoan",
+        args: [offer.offerIdInContract],
+      });
+      const txReceipt = await client.waitForTransactionReceipt({
+        hash: txHash,
+      });
+      // update UI to reflect loan status
+      setLoanRepaidOrLiquidated(true);
+      toast.success("Loan liquidated");
+    } catch (error) {
+      toast.error("Error claiming NFT");
+      console.log(error);
+    }
+  };
 
   return (
     <div
@@ -329,6 +451,27 @@ function Offer({ offer, fetchOrders }: OfferParams) {
         <p className="inline-block text-xs p-1 bg-gray rounded">
           Network: {whitelistedContracts[offer.network as number].chainName}
         </p>
+        <p className="block text-xs p-1 bg-gray rounded">
+          Duration:{" "}
+          {formatDistance(
+            new Date(),
+            new Date().getTime() + Number(offer.loanDuration) * 1000
+          )}
+        </p>
+        {onChainLoan && (
+          <>
+            <p className="block text-xs p-1 bg-gray rounded">
+              Started: {onChainLoan.loanstarttime.toString()}
+            </p>
+            <p className="block text-xs p-1 bg-gray rounded">
+              Ends:{" "}
+              {new Date(
+                onChainLoan.loanstarttime.getTime() +
+                  onChainLoan.loanduration * 1000
+              ).toString()}
+            </p>
+          </>
+        )}
       </div>
       {!offer.executionTransaction && (
         <div className="max-w-60">
@@ -409,7 +552,36 @@ function Offer({ offer, fetchOrders }: OfferParams) {
         </div>
       )}
       {offer.executionTransaction && (
-        <div className="max-w-60">Order Active</div>
+        <div className="max-w-60">
+          {loanRepaidOrLiquidated && <h4>Loan Finished</h4>}
+          {typeof loanRepaidOrLiquidated !== "boolean" && <h4>Loading...</h4>}
+          {typeof loanRepaidOrLiquidated === "boolean" &&
+            !loanRepaidOrLiquidated && (
+              <>
+                <h4>Loan Active</h4>
+                {onChainLoan &&
+                  onChainLoan.borrower.toLowerCase() ===
+                    account.address?.toLowerCase() && (
+                    <Button onClick={payBack}>Pay back Loan</Button>
+                  )}
+                {onChainLoan && // loan in on chain
+                  offer.fullfillerAddress?.toLowerCase() ===
+                    account.address?.toLowerCase() && // loan was fulfilled by user
+                  new Date(
+                    onChainLoan.loanstarttime.getTime() +
+                      onChainLoan.loanduration * 1000
+                  ).getTime() < new Date().getTime() && ( // loan is over and lender can claim their NFT
+                    <>
+                      <Button onClick={liquidateOverdueLoan}>Claim NFT</Button>
+                      <span className="block text-xs p-1 bg-gray rounded">
+                        The borrower has defaulted on their loan so the
+                        collateral NFT can be claimed
+                      </span>
+                    </>
+                  )}
+              </>
+            )}
+        </div>
       )}
     </div>
   );

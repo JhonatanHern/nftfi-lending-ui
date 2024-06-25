@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 export async function POST(request: Request) {
   const query = new URLSearchParams(request.url.split("?")[1]);
   const transactionHash = query.get("transactionHash");
+  const offerIdInContract = query.get("offerIdInContract");
   const offerId = query.get("offerId");
   if (!offerId) {
     return NextResponse.json({
@@ -20,10 +21,17 @@ export async function POST(request: Request) {
       body: { error: "transactionHash is required" },
     });
   }
-  const offer = await prisma.offer.update({
+  if (!offerIdInContract) {
+    return NextResponse.json({
+      status: 400,
+      body: { error: "offerIdInContract is required" },
+    });
+  }
+  await prisma.offer.update({
     where: { id: offerId },
     data: {
       executionTransaction: transactionHash,
+      offerIdInContract: offerIdInContract,
     },
   });
   return NextResponse.json({

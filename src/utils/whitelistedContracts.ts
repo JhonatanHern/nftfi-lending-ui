@@ -9,8 +9,8 @@ type WhitelistedContracts = {
   [networkId: number]: {
     erc721tokens: WhitelistedContract[];
     erc20tokens: WhitelistedContract[];
-    NFTfi: string;
-    DataPacker: string;
+    NFTfi: `0x${string}`;
+    DataPacker: `0x${string}`;
     chainName: string;
   };
 };
@@ -18,8 +18,8 @@ type WhitelistedContracts = {
 export const whitelistedContracts: WhitelistedContracts = {
   1: {
     chainName: "Mainnet",
-    NFTfi: "",
-    DataPacker: "",
+    NFTfi: "0x",
+    DataPacker: "0x",
     erc721tokens: [],
     erc20tokens: [],
   },

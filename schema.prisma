@@ -27,6 +27,7 @@ model Offer {
   fullfillerAddress                        String?
   executionTransaction                     String?
   network                                  String
+  offerIdInContract                        String?
   userId                                   String? @db.ObjectId
 }
 
