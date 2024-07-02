@@ -149,9 +149,12 @@ function Offer({ offer, fetchOrders }: OfferParams) {
           offer.loanPrincipalAmount,
         ],
       });
+      console.log("hash: ", txHash);
+
       const txReceipt = await client.waitForTransactionReceipt({
         hash: txHash,
       });
+      console.log("receipt: ", txReceipt);
 
       toast.success("Funds approved");
     } catch (error) {

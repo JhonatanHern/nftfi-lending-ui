@@ -141,6 +141,7 @@ const OfferMaker = ({ fetchOrders }: OfferMakerParams) => {
       functionName: "getApproved",
       args: [nftCollateralId],
     });
+    console.log("Approved Account: ", approvedAccount);
 
     if (
       (approvedAccount + "").toLowerCase() ===
