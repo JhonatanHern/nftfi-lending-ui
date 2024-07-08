@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import NFTfiABI from "../../../utils/abis/NFTfi.json";
 import { getProviderByNetwork } from "@/utils/provider";
 import { whitelistedContracts } from "@/utils/whitelistedContracts";
+import { rawArgsToBeginLoanParams } from "@/utils/parseTransactionArguments";
+import { verifyLoginSignature } from "@/utils/verifyLoginSignature";
 
 const prisma = new PrismaClient();
 
@@ -13,6 +15,7 @@ export async function POST(request: Request) {
   const transactionHash = query.get("transactionHash");
   const offerIdInContract = query.get("offerIdInContract");
   const offerId = query.get("offerId");
+  const loginSignature = query.get("loginSignature");
   if (!offerId) {
     return NextResponse.json({
       status: 400,
@@ -25,9 +28,21 @@ export async function POST(request: Request) {
       body: { error: "transactionHash is required" },
     });
   }
+  if (!loginSignature) {
+    return NextResponse.json({
+      status: 400,
+      body: { error: "Login Signature is required" },
+    });
+  }
   const offer = await prisma.offer.findUnique({ where: { id: offerId } });
   if (!offer) {
     return NextResponse.json({ error: "No offer found" }, { status: 400 });
+  }
+  if (!verifyLoginSignature(loginSignature, offer.requesterAddress)) {
+    return NextResponse.json(
+      { error: "Wrong login signature." },
+      { status: 400 }
+    );
   }
   // fetch transaction data for validation
   const provider = getProviderByNetwork(offer.network);

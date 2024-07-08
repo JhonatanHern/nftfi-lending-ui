@@ -22,6 +22,7 @@ import NFTfiABI from "../utils/abis/NFTfi.json";
 import DataPackerABI from "../utils/abis/DataPacker.json";
 
 import { whitelistedContracts } from "@/utils/whitelistedContracts";
+import { getLoginSignature } from "@/utils/validateOrRequestLoginSignature";
 
 enum Steps {
   NFT_APPROVAL,
@@ -173,7 +174,7 @@ const OfferMaker = ({ fetchOrders }: OfferMakerParams) => {
   };
 
   const executeSignature = async () => {
-    if (!network) {
+    if (!network || !account || !account.address) {
       return;
     }
     // get user signature
@@ -209,7 +210,7 @@ const OfferMaker = ({ fetchOrders }: OfferMakerParams) => {
     console.log("Valid? ", {
       wagmiIsValidSignature,
     });
-
+    const loginSignature = await getLoginSignature(account.address);
     // send signed offer to backend
     const offer = {
       loanPrincipalAmount,
@@ -224,6 +225,7 @@ const OfferMaker = ({ fetchOrders }: OfferMakerParams) => {
       requesterSignature: wagmiSignedMessage,
       requesterAddress,
       network,
+      loginSignature,
     };
     // turn into query string
     const keyValuePairs = [];

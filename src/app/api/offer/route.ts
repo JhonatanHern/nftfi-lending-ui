@@ -1,3 +1,5 @@
+import { isValidBorrowerSignature } from "@/utils/validateSignatures";
+import { verifyLoginSignature } from "@/utils/verifyLoginSignature";
 import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -5,10 +7,7 @@ const prisma = new PrismaClient();
 
 // create offer
 export async function POST(request: Request) {
-  console.log("obtained data");
-
   const query = new URLSearchParams(request.url.split("?")[1]);
-  console.log("query");
 
   const loanPrincipalAmount = query.get("loanPrincipalAmount");
   const maximumRepaymentAmount = query.get("maximumRepaymentAmount");
@@ -24,20 +23,7 @@ export async function POST(request: Request) {
   const requesterSignature = query.get("requesterSignature");
   const requesterAddress = query.get("requesterAddress");
   const network = query.get("network");
-  console.log("params", {
-    loanPrincipalAmount,
-    maximumRepaymentAmount,
-    nftCollateralId,
-    loanDuration,
-    loanInterestRateForDurationInBasisPoints,
-    adminFeeInBasisPoints,
-    borrowerNonce,
-    nftCollateralContract,
-    loanERC20Denomination,
-    requesterSignature,
-    requesterAddress,
-    network,
-  });
+  const loginSignature = query.get("loginSignature");
 
   // Validation
   if (
@@ -52,14 +38,34 @@ export async function POST(request: Request) {
     !loanERC20Denomination ||
     !requesterSignature ||
     !requesterAddress ||
-    !network
+    !network ||
+    !loginSignature
   ) {
     return NextResponse.json(
       { error: "All fields are required" },
       { status: 400 }
     );
   }
-  console.log("valid");
+
+  if (!verifyLoginSignature(loginSignature, requesterAddress)) {
+    return NextResponse.json(
+      { error: "Wrong login signature." },
+      { status: 400 }
+    );
+  }
+
+  if (
+    !(await isValidBorrowerSignature(
+      nftCollateralId,
+      borrowerNonce,
+      nftCollateralContract,
+      requesterAddress,
+      requesterSignature,
+      network
+    ))
+  ) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
 
   const offer = await prisma.offer.create({
     data: {

@@ -1,4 +1,4 @@
-type BeginLoanParams = {
+export type BeginLoanParams = {
   loanPrincipalAmount: bigint;
   maximumRepaymentAmount: bigint;
   nftCollateralId: bigint;
@@ -13,7 +13,7 @@ type BeginLoanParams = {
   lenderSignature: string;
 };
 
-function rawArgsToBeginLoanParams(params: any[]): BeginLoanParams {
+export const rawArgsToBeginLoanParams = (params: any[]): BeginLoanParams => {
   return {
     loanPrincipalAmount: params[0],
     maximumRepaymentAmount: params[1],
@@ -28,4 +28,4 @@ function rawArgsToBeginLoanParams(params: any[]): BeginLoanParams {
     borrowerSignature: params[10],
     lenderSignature: params[11],
   };
-}
+};

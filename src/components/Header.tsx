@@ -13,7 +13,7 @@ const Header: React.FC = ({}) => {
         <a href="/" className="underline text-lg">
           HyperLender
         </a>
-        <a href="/" className="mx-4 underline text-lg">
+        <a href="/myTrades" className="mx-4 underline text-lg">
           My Trades
         </a>
       </div>

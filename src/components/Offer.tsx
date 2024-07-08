@@ -24,6 +24,7 @@ import {
   OnChainLoan,
   blockchainDataToOnChainLoan,
 } from "@/utils/conversionAndTypes";
+import { getLoginSignature } from "@/utils/validateOrRequestLoginSignature";
 
 type OfferParams = {
   offer: any;
@@ -168,6 +169,9 @@ function Offer({ offer, fetchOrders }: OfferParams) {
 
       return;
     }
+    if (!account || !account.address) {
+      return;
+    }
     const packedData: any = await directRead(config, {
       abi: DataPackerABI,
       address: `0x${whitelistedContracts[currentChainId].DataPacker.split("0x").join("")}`,
@@ -216,11 +220,13 @@ function Offer({ offer, fetchOrders }: OfferParams) {
     }
     await approveFundsTransfer();
     // call endpoint to fulfill order:
+    const loginSignature = await getLoginSignature(account.address);
     const data = {
       signature: wagmiSignedMessage,
       fulfillerAddress: account.address,
       lenderNonce,
       offerId: offer.id,
+      loginSignature,
     };
     const keyValuePairs = [];
     for (const key of Object.keys(data)) {
@@ -248,6 +254,9 @@ function Offer({ offer, fetchOrders }: OfferParams) {
   };
   const executeFulfilledOrder = async () => {
     if (!currentChainId || !collateralContract) {
+      return;
+    }
+    if (!account || !account.address) {
       return;
     }
     // check if current user still owns the NFT
@@ -302,13 +311,16 @@ function Offer({ offer, fetchOrders }: OfferParams) {
       const eventData = lastEmittedEvent.data;
       const offerIdInContract = eventData.substring(0, 66); // 0x + 64 characters - first variable emitted in the event
 
+      const loginSignature = await getLoginSignature(account.address);
       const request = await fetch(
         "/api/notifyTransactionExecution?transactionHash=" +
           encodeURIComponent(transactionHash) +
           "&offerId=" +
           encodeURIComponent(offer.id) +
           "&offerIdInContract=" +
-          encodeURIComponent(offerIdInContract),
+          encodeURIComponent(offerIdInContract) +
+          "&loginSignature=" +
+          encodeURIComponent(loginSignature),
         {
           method: "POST",
         }
@@ -344,9 +356,13 @@ function Offer({ offer, fetchOrders }: OfferParams) {
     }
   };
   const resetOrder = async () => {
+    if (!account || !account.address) {
+      return;
+    }
     try {
+      const loginSignature = await getLoginSignature(account.address);
       const request = await fetch(
-        "/api/reopenOffer?offerId=" + encodeURIComponent(offer.id),
+        `/api/reopenOffer?offerId=${encodeURIComponent(offer.id)}&loginSignature=${loginSignature}`,
         {
           method: "POST",
         }
